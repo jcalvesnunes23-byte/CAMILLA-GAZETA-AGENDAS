@@ -54,11 +54,45 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
       const createdBooking = await addBooking(newBooking);
       const appointmentId = createdBooking?.id || newBooking.id;
 
+      // 1. Call AbacatePay Edge Function
+      let checkoutUrl = '';
+      try {
+        console.log('Calling Edge Function: create-abacate-billing', { amount: totalAmount, appointmentId });
+        const { data: billingData, error: billingError } = await supabase.functions.invoke('create-abacate-billing', {
+          body: {
+            amount: totalAmount,
+            appointmentId: appointmentId,
+            customer: {
+              name: bookingState.customerName,
+              email: bookingState.customerEmail,
+              cellphone: bookingState.customerPhone,
+              taxId: bookingState.customerCPF
+            },
+            successUrl: `${window.location.origin}/?success=true&id=${appointmentId}`
+          }
+        });
+
+        if (billingError) {
+          console.error('Edge Function Error:', billingError);
+          throw new Error(billingError.message || 'Erro na função de pagamento');
+        }
+
+        if (billingData?.url) {
+          checkoutUrl = billingData.url;
+          console.log('Checkout URL generated:', checkoutUrl);
+        } else if (billingData?.error) {
+          throw new Error(billingData.error);
+        }
+      } catch (err: any) {
+        console.error('Error creating AbacatePay billing:', err);
+        alert(`Aviso: Não foi possível gerar o link de pagamento PIX. Detalhe: ${err.message}. Vamos prosseguir com o agendamento via WhatsApp.`);
+      }
+
       // Format WhatsApp Message
       const dateFormatted = new Date(bookingState.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', weekday: 'long' });
       const addonsList = (bookingState.selectedAddons || []).map(a => a.name).join(', ') || 'Nenhum';
 
-      const message = `Olá! Gostaria de confirmar meu agendamento:
+      const message = `Olá! Realizei um novo agendamento:
 
 👤 *Cliente:* ${bookingState.customerName}
 📞 *WhatsApp:* ${bookingState.customerPhone}
@@ -68,16 +102,22 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
 ➕ *Adicionais:* ${addonsList}
 💰 *Valor Total:* R$ ${totalAmount},00
 
+${checkoutUrl ? `💳 *Link para Pagamento (PIX):* ${checkoutUrl}\n` : ''}
 *ID do Agendamento:* ${appointmentId}
 
-Aguardando sua confirmação!`;
+Aguardo a confirmação!`;
 
-      const whatsappNumber = '5527988488209';
+      const whatsappNumber = '5527997421646';
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
 
-      console.log('Redirecting to WhatsApp:', whatsappUrl);
-      window.open(whatsappUrl, '_blank');
+      // 2. Open AbacatePay Checkout if available, otherwise WhatsApp
+      if (checkoutUrl) {
+        // Use window.location.assign to avoid popup blockers
+        window.location.assign(checkoutUrl);
+      } else {
+        window.open(whatsappUrl, '_blank');
+      }
 
       setIsSuccess(true);
       setIsSubmitting(false);
@@ -96,7 +136,7 @@ Aguardando sua confirmação!`;
         <div className="mb-8 animate-bounce transition-all">
           <img
             src="/logo.png"
-            alt="Jhuly Martins Logo"
+            alt="Camilla Gazeta Logo"
             className="h-24 md:h-40 w-auto object-contain drop-shadow-2xl mx-auto"
           />
         </div>
@@ -152,7 +192,7 @@ Aguardando sua confirmação!`;
             Agendamento & Checkout <span className="text-primary italic">Luxo</span>
           </h2>
           <p className="text-slate-400 text-lg font-light max-w-2xl">
-            Garanta seu momento de exclusividade com os melhores procedimentos de design de sobrancelhas.
+            Garanta seu momento de exclusividade com os melhores procedimentos de nail design.
           </p>
         </div>
 
@@ -385,6 +425,17 @@ Aguardando sua confirmação!`;
                     type="tel"
                   />
                 </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-slate-400 text-[10px] font-black uppercase px-1 tracking-[0.1em]">CPF</label>
+                  <input
+                    name="customerCPF"
+                    value={bookingState.customerCPF}
+                    onChange={handleInputChange}
+                    className="bg-background-dark border border-border-dark rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-0 transition-all text-sm font-medium"
+                    placeholder="000.000.000-00"
+                    type="text"
+                  />
+                </div>
                 <div className="flex flex-col gap-2 md:col-span-2">
                   <label className="text-slate-400 text-[10px] font-black uppercase px-1 tracking-[0.1em]">E-mail para Confirmação</label>
                   <input
@@ -394,6 +445,7 @@ Aguardando sua confirmação!`;
                     className="bg-background-dark border border-border-dark rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-0 transition-all text-sm font-medium"
                     placeholder="seuemail@exemplo.com"
                     type="email"
+                    required
                   />
                 </div>
               </div>
@@ -408,12 +460,12 @@ Aguardando sua confirmação!`;
 
               <div className="bg-background-dark/50 border border-border-dark rounded-xl p-8 flex flex-col items-center text-center gap-6">
                 <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                  <span className="material-symbols-outlined text-primary text-3xl">chat</span>
+                  <span className="material-symbols-outlined text-primary text-3xl">payments</span>
                 </div>
                 <div>
-                  <h4 className="text-white font-bold text-lg mb-2">Finalização via WhatsApp</h4>
+                  <h4 className="text-white font-bold text-lg mb-2">Pagamento via PIX (AbacatePay)</h4>
                   <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                    Você será redirecionada para o <span className="text-white font-bold">WhatsApp</span> da profissional para validar seu horário. O pagamento será realizado no momento do atendimento.
+                    Ao clicar abaixo, você será redirecionada para o checkout seguro do <span className="text-white font-bold">AbacatePay</span> para realizar o pagamento via PIX. Após isso, seu horário será confirmado automaticamente.
                   </p>
                 </div>
               </div>
@@ -434,10 +486,10 @@ Aguardando sua confirmação!`;
                   </div>
                   <div className="flex flex-col gap-1">
                     <p className="text-slate-300 text-xs font-medium leading-relaxed">
-                      Ao clicar em finalizar, você declara estar ciente de que o horário será reservado e a confirmação final será feita via WhatsApp.
+                      Ao clicar em finalizar, você será direcionada para o pagamento. O horário será reservado e a confirmação final será enviada também via WhatsApp.
                     </p>
                     <p className="text-primary text-[10px] font-black uppercase tracking-wider">
-                      RESERVA SUJEITA A DISPONIBILIDADE NO MOMENTO DO CONTATO.
+                      PAGAMENTO SEGURO VIA ABACATEPAY.
                     </p>
                   </div>
                 </label>
@@ -497,7 +549,7 @@ Aguardando sua confirmação!`;
                       <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center">
                         <span className="material-symbols-outlined text-[14px] text-primary font-black">person</span>
                       </div>
-                      <span className="text-white font-black text-sm">Jhuly Martins</span>
+                      <span className="text-white font-black text-sm">Camilla Gazeta</span>
                     </div>
                   </div>
                 </div>

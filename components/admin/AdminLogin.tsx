@@ -3,7 +3,7 @@ import { useStudio } from '../../context/StudioContext';
 
 const AdminLogin: React.FC = () => {
     const { login } = useStudio();
-    const [email, setEmail] = useState('martinsjhuly8@gmail.com');
+    const [email, setEmail] = useState('camillanunes.cg@gmail.com');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);

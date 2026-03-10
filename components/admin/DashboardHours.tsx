@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStudio } from '../../context/StudioContext';
 
 const DashboardHours: React.FC = () => {
-    const { availability, toggleDayAvailability, updateDaySlots, bookings, addBooking } = useStudio();
+    const { services, availability, toggleDayAvailability, updateDaySlots, bookings, addBooking } = useStudio();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
@@ -10,11 +10,8 @@ const DashboardHours: React.FC = () => {
     const [clientName, setClientName] = useState('');
     const [clientPhone, setClientPhone] = useState('');
 
-    // Generate hours from 09:00 to 22:00
-    const allHours = Array.from({ length: 14 }, (_, i) => {
-        const h = i + 9;
-        return `${h.toString().padStart(2, '0')}:00`;
-    });
+    const [newHour, setNewHour] = useState('');
+    const [maintenancePrice, setMaintenancePrice] = useState('');
 
     const goToPrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -39,14 +36,21 @@ const DashboardHours: React.FC = () => {
         setSelectedDate(formatDateStr(day));
     };
 
+    const addCustomHour = (date: string) => {
+        if (!newHour) return;
+        const currentData = availability[date] || { available: true, slots: [] };
+        if (currentData.slots.includes(newHour)) {
+            setNewHour('');
+            return;
+        }
+        const newSlots = [...currentData.slots, newHour].sort();
+        updateDaySlots(date, newSlots);
+        setNewHour('');
+    };
+
     const toggleHour = (date: string, hour: string) => {
         const currentData = availability[date] || { available: false, slots: [] };
-        let newSlots;
-        if (currentData.slots.includes(hour)) {
-            newSlots = currentData.slots.filter(s => s !== hour);
-        } else {
-            newSlots = [...currentData.slots, hour].sort();
-        }
+        const newSlots = currentData.slots.filter(s => s !== hour);
         updateDaySlots(date, newSlots);
     };
 
@@ -56,7 +60,7 @@ const DashboardHours: React.FC = () => {
         try {
             const maintenanceBooking = {
                 id: crypto.randomUUID(),
-                serviceId: 'maintenance', // Special ID for maintenance
+                serviceId: services[0]?.id || '1cdee5fb-a267-4067-8fd5-ac93c9660c53', // Fallback valid UUID
                 date: selectedDate,
                 time: maintenanceSlot,
                 customerName: clientName,
@@ -65,7 +69,7 @@ const DashboardHours: React.FC = () => {
                 paymentOption: 'full' as const,
                 createdAt: new Date().toISOString(),
                 status: 'confirmed' as const,
-                totalAmount: 0,
+                totalAmount: parseFloat(maintenancePrice) || 0,
                 depositAmount: 0,
                 isMaintenance: true
             };
@@ -82,6 +86,7 @@ const DashboardHours: React.FC = () => {
             setIsMaintenanceModalOpen(false);
             setClientName('');
             setClientPhone('');
+            setMaintenancePrice('');
             setMaintenanceSlot(null);
             alert('Manutenção/Retorno agendado com sucesso!');
         } catch (error) {
@@ -133,13 +138,15 @@ const DashboardHours: React.FC = () => {
                                 while (activeDates.length < 7) {
                                     const dateStr = checkDate.toISOString().split('T')[0];
                                     const isSun = checkDate.getDay() === 0;
-                                    // We consider it "active" if it's not Sunday and not yet filled
-                                    if (!isSun) {
+                                    const dayData = availability[dateStr];
+                                    const hasSlots = (dayData?.slots || []).length > 0;
+
+                                    if (!isSun && dayData?.available && hasSlots) {
                                         activeDates.push(dateStr);
                                     }
                                     checkDate.setDate(checkDate.getDate() + 1);
-                                    // Safety break
-                                    if (checkDate.getTime() > today.getTime() + 1000 * 60 * 60 * 24 * 30) break;
+                                    // Safety break (increased to 90 days to find 7 dates if many are closed)
+                                    if (checkDate.getTime() > today.getTime() + 1000 * 60 * 60 * 24 * 90) break;
                                 }
                                 const activeDatesSet = new Set(activeDates);
 
@@ -155,15 +162,15 @@ const DashboardHours: React.FC = () => {
                                     return (
                                         <button
                                             key={day}
-                                            disabled={!isActiveWindow && !isSunday}
+                                            disabled={isSunday}
                                             onClick={() => handleDayClick(day)}
                                             className={`
                                                 aspect-square rounded-lg sm:rounded-xl flex flex-col items-center justify-center gap-1 border transition-all text-xs sm:text-sm relative
                                                 ${isSelected ? 'ring-2 ring-primary border-transparent' : 'border-white/5'}
                                                 ${isActiveWindow ? 'ring-1 ring-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.15)] border-green-500/30' : ''}
-                                                ${isSunday || !isActiveWindow ? 'opacity-30 grayscale-[0.5]' : ''}
+                                                ${isSunday ? 'opacity-30 grayscale-[0.5]' : ''}
                                                 ${isOpen ? 'bg-primary/20 text-white' : 'bg-background-dark/50 text-slate-500'}
-                                                ${!isActiveWindow ? 'cursor-not-allowed' : 'hover:border-primary/50'}
+                                                ${isSunday ? 'cursor-not-allowed' : 'hover:border-primary/50'}
                                             `}
                                         >
                                             <span className="font-bold">{day}</span>
@@ -223,10 +230,25 @@ const DashboardHours: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex-grow p-6 overflow-y-auto">
-                                <label className="text-[10px] font-black text-slate-500 uppercase block mb-4">Escolha os horários disponíveis:</label>
+                                <div className="mb-6 flex gap-2">
+                                    <input
+                                        type="time"
+                                        value={newHour}
+                                        onChange={(e) => setNewHour(e.target.value)}
+                                        className="flex-grow bg-background-dark border border-white/10 rounded-xl px-4 py-2 text-white focus:border-primary focus:ring-0 text-sm"
+                                    />
+                                    <button
+                                        onClick={() => addCustomHour(selectedDate)}
+                                        className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-all"
+                                    >
+                                        Adicionar
+                                    </button>
+                                </div>
+
+                                <label className="text-[10px] font-black text-slate-500 uppercase block mb-4">Horários configurados:</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {allHours.map(hour => {
-                                        const isEnabled = availability[selectedDate]?.slots.includes(hour);
+                                    {(availability[selectedDate]?.slots || []).map(hour => {
+                                        const isEnabled = true;
                                         const isDayOpen = availability[selectedDate]?.available;
                                         const booking = bookings.find(b =>
                                             b.date === selectedDate &&
@@ -238,40 +260,49 @@ const DashboardHours: React.FC = () => {
 
                                         return (
                                             <div key={hour} className="relative group">
-                                                <button
-                                                    disabled={!isDayOpen}
-                                                    onClick={() => toggleHour(selectedDate, hour)}
+                                                <div
                                                     className={`
-                                                        w-full p-3 rounded-xl border text-xs font-bold transition-all relative
-                                                        ${isEnabled
-                                                            ? (isMaintenance ? 'bg-primary/20 border-primary text-primary' : 'bg-primary border-primary text-white shadow-lg shadow-primary/20')
-                                                            : 'bg-white/5 border-white/10 text-slate-400'}
-                                                        ${!isDayOpen ? 'opacity-20 cursor-not-allowed' : 'hover:border-primary/50'}
-                                                        ${isMaintenance ? 'ring-1 ring-primary ring-inset' : ''}
+                                                        w-full p-3 rounded-xl border text-xs font-bold transition-all relative flex items-center justify-between
+                                                        ${isBooked
+                                                            ? (isMaintenance ? 'bg-primary/20 border-primary text-primary' : 'bg-red-500/20 border-red-500/20 text-red-400')
+                                                            : 'bg-primary border-primary text-white shadow-lg shadow-primary/20'}
+                                                        ${!isDayOpen ? 'opacity-20 cursor-not-allowed' : ''}
                                                     `}
                                                 >
-                                                    {hour}
-                                                    {isBooked && (
-                                                        <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-card-dark shadow-lg ring-1 ${isMaintenance ? 'bg-primary ring-primary/50' : 'bg-red-500 ring-red-500/50'}`} title={isMaintenance ? "Manutenção Agendada" : "Horário já ocupado"}></div>
+                                                    <span>{hour}</span>
+                                                    {!isBooked && (
+                                                        <button
+                                                            onClick={() => toggleHour(selectedDate, hour)}
+                                                            className="text-white/50 hover:text-white transition-colors"
+                                                            title="Remover horário"
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                        </button>
                                                     )}
-                                                </button>
-                                                {!isBooked && isEnabled && isDayOpen && (
+                                                </div>
+                                                {!isBooked && isDayOpen && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setMaintenanceSlot(hour);
                                                             setIsMaintenanceModalOpen(true);
                                                         }}
-                                                        className="absolute -top-1 -right-1 scale-0 group-hover:scale-100 bg-white text-primary rounded-full p-0.5 shadow-xl transition-transform"
-                                                        title="Marcar Manutenção"
+                                                        className="absolute -top-1 -right-1 bg-white text-primary rounded-full p-0.5 shadow-xl hover:scale-110 transition-transform"
+                                                        title="Agendar Manutenção"
                                                     >
-                                                        <span className="material-symbols-outlined text-[14px] font-black">add</span>
+                                                        <span className="material-symbols-outlined text-[14px] font-black">add_circle</span>
                                                     </button>
+                                                )}
+                                                {isBooked && (
+                                                    <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-card-dark shadow-lg ring-1 ${isMaintenance ? 'bg-primary ring-primary/50' : 'bg-red-500 ring-red-500/50'}`} title={isMaintenance ? "Manutenção Agendada" : "Horário já ocupado"}></div>
                                                 )}
                                             </div>
                                         );
                                     })}
                                 </div>
+                                {(availability[selectedDate]?.slots || []).length === 0 && (
+                                    <p className="text-center text-slate-500 text-xs py-8">Nenhum horário adicionado para este dia.</p>
+                                )}
                             </div>
                         </>
                     ) : (
@@ -307,6 +338,26 @@ const DashboardHours: React.FC = () => {
                                     value={clientName}
                                     onChange={(e) => setClientName(e.target.value)}
                                     placeholder="Ex: Maria Oliveira"
+                                    className="bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-0 transition-all text-sm"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest px-1">Telefone/WhatsApp</label>
+                                <input
+                                    type="tel"
+                                    value={clientPhone}
+                                    onChange={(e) => setClientPhone(e.target.value)}
+                                    placeholder="(00) 00000-0000"
+                                    className="bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-0 transition-all text-sm"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest px-1">Valor do Serviço (R$)</label>
+                                <input
+                                    type="number"
+                                    value={maintenancePrice}
+                                    onChange={(e) => setMaintenancePrice(e.target.value)}
+                                    placeholder="0,00"
                                     className="bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-0 transition-all text-sm"
                                 />
                             </div>

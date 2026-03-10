@@ -11,10 +11,7 @@ const DashboardAgenda: React.FC = () => {
 
         const bookingDate = new Date(booking.date + 'T00:00:00');
 
-        const sevenDaysLater = new Date(today);
-        sevenDaysLater.setDate(today.getDate() + 7);
-
-        return bookingDate >= today && bookingDate <= sevenDaysLater;
+        return bookingDate >= today;
     });
 
     const sortedBookings = [...filteredBookings].sort((a, b) => {
@@ -28,7 +25,7 @@ const DashboardAgenda: React.FC = () => {
             <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                     <h3 className="text-white font-bold uppercase tracking-wide">Agenda de Atendimentos</h3>
-                    <p className="text-slate-500 text-xs mt-1">Próximos 7 dias de agendamentos</p>
+                    <p className="text-slate-500 text-xs mt-1">Todos os próximos agendamentos</p>
                 </div>
             </div>
 
@@ -36,7 +33,7 @@ const DashboardAgenda: React.FC = () => {
                 {sortedBookings.length === 0 ? (
                     <div className="p-8 text-center text-slate-500">
                         <span className="material-symbols-outlined text-4xl mb-2">event_busy</span>
-                        <p>Nenhum agendamento encontrado para os próximos 7 dias.</p>
+                        <p>Nenhum agendamento futuro encontrado.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

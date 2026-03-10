@@ -23,7 +23,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-xl font-extrabold tracking-tight uppercase text-white">
-            Jhuly Martins <span className="text-primary">Designer</span>
+            Camilla Gazeta <span className="text-primary">Nail Designer</span>
           </h2>
         </div>
 

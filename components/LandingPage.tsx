@@ -12,12 +12,32 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
   const { services, loading } = useStudio();
   const showSkeleton = loading && services.length === 0;
 
+  React.useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('reveal-active');
+        }
+      });
+    }, observerOptions);
+
+    const revealElements = document.querySelectorAll('.reveal');
+    revealElements.forEach(el => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [loading, services]);
+
   return (
     <div className="animate-in fade-in duration-700">
-      {/* ... Hero Section remains same ... */}
+      {/* ... Hero Section ... */}
       <section className="relative min-h-[85vh] flex items-center overflow-hidden px-6 lg:px-20 pt-20">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-          <div className="order-2 lg:order-1 flex flex-col gap-8">
+          <div className="order-2 lg:order-1 flex flex-col gap-8 reveal">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 w-fit">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
@@ -27,7 +47,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black leading-[1.1] tracking-tight text-white">
-              Sobrancelhas perfeitas são o detalhe que realça o seu <span className="text-primary italic">olhar único.</span>
+              Unhas impecáveis são o detalhe que realça a sua <span className="text-primary italic">essência única.</span>
             </h1>
 
 
@@ -39,22 +59,25 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
                 Agendar Agora
                 <span className="material-symbols-outlined">calendar_month</span>
               </button>
-              <button
-                onClick={() => onScrollToSection('services')}
-                className="border border-white/10 bg-white/5 hover:bg-white/10 text-white px-10 py-4 rounded-xl text-lg font-bold transition-all"
+              <a
+                href="https://www.instagram.com/camillagazeta/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-white/10 bg-white/5 hover:bg-white/10 text-white px-10 py-4 rounded-xl text-lg font-bold transition-all flex items-center justify-center gap-2"
               >
-                Ver serviços
-              </button>
+                Instagram
+                <span className="material-symbols-outlined">camera_enhance</span>
+              </a>
             </div>
           </div>
 
-          <div className="order-1 lg:order-2 relative group">
+          <div className="order-1 lg:order-2 relative group reveal">
             <div className="absolute -inset-4 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all"></div>
             <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
               <img
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                src="/jhuly.png"
-                alt="Jhuly Martins - Designer de Sobrancelha"
+                src="/camilla.png"
+                alt="Camilla Gazeta - Nail Designer"
               />
               <div className="absolute bottom-6 left-6 bg-card-dark/95 backdrop-blur-sm border border-border-dark p-5 rounded-xl shadow-2xl hidden md:block max-w-[240px]">
                 <div className="flex items-center gap-3">
@@ -75,13 +98,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
       {/* Services Section */}
       <section id="services" className="py-24 px-6 bg-background-dark">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 reveal">
             <div>
               <span className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 block">Nossa Especialidade</span>
               <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">Nossos Serviços</h2>
             </div>
             <p className="text-slate-400 max-w-md text-sm md:text-base">
-              Realce sua beleza com técnicas personalizadas de design de sobrancelha e micropigmentação.
+              Realce sua beleza com técnicas personalizadas de nail design e cuidados exclusivos.
             </p>
           </div>
 
@@ -99,10 +122,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
                 </div>
               ))
             ) : (
-              services.map((service) => (
+              services.map((service, index) => (
                 <div
                   key={service.id}
-                  className={`group relative flex flex-col bg-card-dark rounded-2xl border transition-all p-3 hover:shadow-2xl hover:shadow-primary/10 ${service.popular ? 'border-primary/50 ring-1 ring-primary/20' : 'border-white/5 hover:border-primary/30'}`}
+                  style={{ transitionDelay: `${index * 100}ms` }}
+                  className={`group relative flex flex-col bg-card-dark rounded-2xl border transition-all p-3 hover:shadow-2xl hover:shadow-primary/10 reveal ${service.popular ? 'border-primary/50 ring-1 ring-primary/20' : 'border-white/5 hover:border-primary/30'}`}
                 >
                   {service.popular && (
                     <div className="absolute top-6 right-6 z-10">
@@ -143,7 +167,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
       <section id="contact" className="py-24 px-6 bg-[#0c0c16] overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-12">
+            <div className="space-y-12 reveal">
               <div>
                 <span className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 block">Experiência Exclusiva</span>
                 <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Visite nosso <span className="italic">Studio</span></h2>
@@ -166,7 +190,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectService, onBookNow, o
             </div>
 
 
-            <div className="relative flex justify-center items-center">
+            <div className="relative flex justify-center items-center reveal">
               <div className="absolute -inset-20 bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
               <div className="relative w-full aspect-square max-w-[500px]">
                 <a

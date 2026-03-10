@@ -23,6 +23,7 @@ const App: React.FC = () => {
     customerName: '',
     customerEmail: '',
     customerPhone: '',
+    customerCPF: '',
     selectedAddons: []
   });
 
@@ -83,7 +84,7 @@ const App: React.FC = () => {
 
         {/* Floating WhatsApp Button */}
         <a
-          href="https://api.whatsapp.com/send?phone=5527988488209"
+          href="https://api.whatsapp.com/send?phone=5527997421646"
           target="_blank"
           rel="noopener noreferrer"
           className="fixed bottom-8 right-8 z-[100] group flex items-center gap-3 bg-[#25D366] hover:bg-[#20ba5a] text-white p-4 md:pl-5 md:pr-7 rounded-full shadow-2xl shadow-[#25D366]/40 transition-all hover:-translate-y-1"

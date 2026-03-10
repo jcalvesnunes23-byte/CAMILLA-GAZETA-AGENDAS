@@ -274,7 +274,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 .from('appointments')
                 .insert({
                     id: booking.id,
-                    service_id: booking.serviceId,
+                    service_id: booking.serviceId === 'maintenance' ? (services[0]?.id || '1cdee5fb-a267-4067-8fd5-ac93c9660c53') : booking.serviceId,
                     date: booking.date,
                     time: booking.time,
                     user_name: booking.customerName,
@@ -282,7 +282,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     user_phone: booking.customerPhone,
                     total_amount: booking.totalAmount,
                     value: booking.totalAmount,
-                    status: 'pending',
+                    status: booking.status || 'pending',
                     is_maintenance: booking.isMaintenance || false,
                     selected_addons: booking.selectedAddons || []
                 })

@@ -15,10 +15,10 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="size-12 flex items-center justify-center">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-white text-lg font-extrabold uppercase tracking-tight">Jhuly Martins</h2>
+            <h2 className="text-white text-lg font-extrabold uppercase tracking-tight">Camilla Gazeta</h2>
           </div>
           <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em]">
-            © 2024 Jhuly Martins - Sobrancelha Designer. Todos os direitos reservados.
+            © 2024 Camilla Gazeta - Nail Designer. Todos os direitos reservados.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <a href="#" className="size-10 rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-primary transition-all">
             <span className="material-symbols-outlined text-xl">public</span>
           </a>
-          <a href="#" className="size-10 rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-primary transition-all">
+          <a href="https://www.instagram.com/camillagazeta/" target="_blank" rel="noopener noreferrer" className="size-10 rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-primary transition-all">
             <span className="material-symbols-outlined text-xl">camera_enhance</span>
           </a>
         </div>

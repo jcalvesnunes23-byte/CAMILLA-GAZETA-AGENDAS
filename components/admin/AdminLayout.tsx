@@ -94,7 +94,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ onNavigate }) => {
                         {navItems.find(i => i.id === activeTab)?.label}
                     </h2>
                     <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-xs md:text-sm font-medium">Jhuly Martins</span>
+                        <span className="text-xs md:text-sm font-medium">Camilla Gazeta</span>
                     </div>
                 </header>
 

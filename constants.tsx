@@ -39,7 +39,7 @@ export const TIME_SLOTS = [
 ];
 
 export const CALENDAR_DAYS = [
-  { day: 1, available: false }, { day: 2, available: false }, { day: 3, available: false }, { day: 4, available: true },
+  { day: 1, available: true }, { day: 2, available: true }, { day: 3, available: true }, { day: 4, available: true },
   { day: 5, available: true }, { day: 6, available: true }, { day: 7, available: true }, { day: 8, available: true },
   { day: 9, available: true }, { day: 10, available: true }, { day: 11, available: true }, { day: 12, available: true },
   { day: 13, available: true }, { day: 14, available: true }, { day: 15, available: true }

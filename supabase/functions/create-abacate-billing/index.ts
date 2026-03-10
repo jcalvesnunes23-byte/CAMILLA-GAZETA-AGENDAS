@@ -13,12 +13,12 @@ serve(async (req) => {
 
     try {
         const body = await req.json();
-        const { amount, appointmentId, successUrl } = body;
+        const { amount, appointmentId, successUrl, customer } = body;
 
         console.log("--- New Billing Request ---", appointmentId);
 
-        if (!amount || !appointmentId) {
-            throw new Error(`Missing required parameters: amount=${amount}, appointmentId=${appointmentId}`);
+        if (!amount || !appointmentId || !customer) {
+            throw new Error(`Missing required parameters: amount=${amount}, appointmentId=${appointmentId}, customer=${!!customer}`);
         }
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -67,7 +67,7 @@ serve(async (req) => {
             .maybeSingle();
 
         const externalProductId = productMapping?.external_id || appointmentId;
-        const productName = service?.name || "Agendamento - Jhuly Designer";
+        const productName = service?.name || "Agendamento - Camilla Gazeta";
 
         console.log("Processing Billing:", productName, "| ID:", externalProductId);
 
@@ -77,6 +77,12 @@ serve(async (req) => {
             frequency: "ONE_TIME",
             amount: amountInCents,
             methods: ["PIX"],
+            customer: {
+                name: customer.name,
+                cellphone: customer.cellphone,
+                email: customer.email,
+                taxId: customer.taxId || ""
+            },
             products: [
                 {
                     externalId: externalProductId,

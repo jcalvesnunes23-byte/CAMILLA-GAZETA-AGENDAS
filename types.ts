@@ -29,6 +29,7 @@ export interface BookingState {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerCPF: string;
   selectedAddons: { name: string; price: number }[];
 }
 
