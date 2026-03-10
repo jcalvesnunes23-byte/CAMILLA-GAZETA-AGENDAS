@@ -74,14 +74,19 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
 
         if (billingError) {
           console.error('Edge Function Error:', billingError);
-          throw new Error(billingError.message || 'Erro na função de pagamento');
+          // Tenta extrair a mensagem de erro do corpo da resposta se disponível
+          let detailedError = billingError.message;
+          if (billingData && typeof billingData === 'object' && 'error' in billingData) {
+            detailedError = (billingData as any).error;
+          }
+          throw new Error(detailedError || 'Erro na função de pagamento');
         }
 
         if (billingData?.url) {
           checkoutUrl = billingData.url;
           console.log('Checkout URL generated:', checkoutUrl);
-        } else if (billingData?.error) {
-          throw new Error(billingData.error);
+        } else {
+          throw new Error('AbacatePay não retornou link de pagamento.');
         }
       } catch (err: any) {
         console.error('Error creating AbacatePay billing:', err);
