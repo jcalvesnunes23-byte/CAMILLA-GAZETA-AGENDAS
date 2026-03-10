@@ -66,31 +66,25 @@ serve(async (req) => {
         const sanitize = (str: string) => str.replace(/\D/g, "");
 
         const payload = {
-            frequency: "ONE_TIME",
             amount: amountInCents,
-            methods: ["PIX"],
+            expiresIn: 3600, // 1 hour
+            description: productName.substring(0, 37),
             customer: {
                 name: customer.name,
                 cellphone: sanitize(customer.cellphone),
                 email: customer.email,
                 taxId: sanitize(customer.taxId || "00000000000")
             },
-            products: [
-                {
-                    externalId: appointmentId,
-                    name: productName.substring(0, 37),
-                    quantity: 1
-                }
-            ],
-            returnUrl: successUrl,
-            completionUrl: successUrl
+            metadata: {
+                externalId: appointmentId
+            }
         };
 
-        await log("INFO", "Payload to AbacatePay (Billing)", payload);
+        await log("INFO", "Payload to AbacatePay (PIX QR)", payload);
 
         const authHeader = ABACATE_PAY_TOKEN.startsWith("Bearer ") ? ABACATE_PAY_TOKEN : `Bearer ${ABACATE_PAY_TOKEN}`;
 
-        const response = await fetch("https://api.abacatepay.com/v1/billing/create", {
+        const response = await fetch("https://api.abacatepay.com/v1/pixQrCode/create", {
             method: "POST",
             headers: {
                 "Authorization": authHeader,
@@ -102,22 +96,19 @@ serve(async (req) => {
         const abacateData = await response.json();
 
         if (!response.ok) {
-            await log("ERROR", "AbacatePay Billing Error", { status: response.status, body: abacateData });
+            await log("ERROR", "AbacatePay PIX Error", { status: response.status, body: abacateData });
             const errorMsg = abacateData.error || abacateData.message || JSON.stringify(abacateData);
             throw new Error(`AbacatePay: ${errorMsg}`);
         }
 
-        await log("SUCCESS", "AbacatePay Billing Created", abacateData);
-
-        const checkoutUrl = abacateData.data?.url;
-        if (!checkoutUrl) {
-            await log("ERROR", "URL not found in billing response", abacateData);
-            throw new Error("AbacatePay: URL de checkout não encontrada");
-        }
+        await log("SUCCESS", "AbacatePay PIX Created", { id: abacateData.data?.id });
 
         return new Response(JSON.stringify({
-            url: checkoutUrl,
-            billingId: abacateData.data?.id
+            pixData: {
+                brCode: abacateData.data?.brCode,
+                qrCode: abacateData.data?.brCodeBase64,
+                id: abacateData.data?.id
+            }
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,

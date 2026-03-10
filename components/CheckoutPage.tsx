@@ -16,6 +16,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolicyAccepted, setIsPolicyAccepted] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [pixData, setPixData] = useState<{ brCode: string; qrCode: string; id: string } | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   if (loading || services.length === 0) {
     return (
@@ -82,11 +84,11 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
           throw new Error(detailedError || 'Erro na função de pagamento');
         }
 
-        if (billingData?.url) {
-          checkoutUrl = billingData.url;
-          console.log('Checkout URL generated:', checkoutUrl);
+        if (billingData?.pixData) {
+          setPixData(billingData.pixData);
+          console.log('PIX Data received:', billingData.pixData);
         } else {
-          throw new Error('AbacatePay não retornou link de pagamento.');
+          throw new Error('AbacatePay não retornou dados do PIX.');
         }
       } catch (err: any) {
         console.error('Error creating AbacatePay billing:', err);
@@ -107,7 +109,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
 ➕ *Adicionais:* ${addonsList}
 💰 *Valor Total:* R$ ${totalAmount},00
 
-${checkoutUrl ? `💳 *Link para Pagamento (PIX):* ${checkoutUrl}\n` : ''}
+${pixData?.brCode ? `💳 *PIX Copia e Cola:* ${pixData.brCode}\n` : ''}
 *ID do Agendamento:* ${appointmentId}
 
 Aguardo a confirmação!`;
@@ -116,16 +118,13 @@ Aguardo a confirmação!`;
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
 
-      // 2. Open AbacatePay Checkout if available, otherwise WhatsApp
-      if (checkoutUrl) {
-        // Use window.location.assign to avoid popup blockers
-        window.location.assign(checkoutUrl);
-      } else {
-        window.open(whatsappUrl, '_blank');
-      }
-
+      // 2. Success state handles UI (shows QR Code or redirects to WhatsApp)
       setIsSuccess(true);
       setIsSubmitting(false);
+
+      if (!pixData && !checkoutUrl) {
+        window.open(whatsappUrl, '_blank');
+      }
 
     } catch (error: any) {
       console.error('Error creating booking:', error);
@@ -151,8 +150,51 @@ Aguardo a confirmação!`;
         </h1>
 
         <p className="text-slate-400 text-base md:text-xl max-w-2xl mb-12 font-medium">
-          Seu agendamento para <span className="text-white font-bold">{selectedService.name}</span> foi enviado com sucesso. Já estamos te aguardando no WhatsApp para os detalhes finais!
+          Seu agendamento para <span className="text-white font-bold">{selectedService.name}</span> foi enviado com sucesso. Escolha uma opção de pagamento abaixo:
         </p>
+
+        {pixData && (
+          <div className="w-full max-w-xl mb-12 animate-in slide-in-from-top-4 duration-700">
+            <div className="bg-card-dark rounded-3xl border border-white/10 p-8 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4">
+                <span className="flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center gap-6">
+                <div className="bg-primary/5 p-3 rounded-2xl border border-primary/10">
+                  <span className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Pagamento Instatâneo PIX</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-primary/20 hover:scale-[1.02] transition-transform duration-500 cursor-zoom-in">
+                  <img src={pixData.qrCode} alt="PIX QR Code" className="size-48 md:size-64 object-contain" />
+                </div>
+
+                <div className="w-full flex flex-col gap-4">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(pixData.brCode);
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 group/btn"
+                  >
+                    <span className="material-symbols-outlined text-primary group-hover/btn:scale-110 transition-transform">
+                      {isCopied ? 'check_circle' : 'content_copy'}
+                    </span>
+                    {isCopied ? 'Código Copiado!' : 'Copiar PIX Copia e Cola'}
+                  </button>
+
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">
+                    Escaneie o código acima ou copie o link
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-12">
           <div className="bg-card-dark p-6 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
@@ -172,12 +214,44 @@ Aguardo a confirmação!`;
           </div>
         </div>
 
-        <button
-          onClick={() => window.location.href = '/'}
-          className="bg-white hover:bg-white/90 text-black font-black py-4 px-12 rounded-full border border-white/10 transition-all uppercase tracking-tighter text-sm shadow-xl shadow-white/10"
-        >
-          Voltar para o Início
-        </button>
+        <div className="flex flex-col md:flex-row gap-4">
+          <button
+            onClick={() => {
+              const whatsappNumber = '5527997421646';
+              const dateFormatted = new Date(bookingState.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', weekday: 'long' });
+              const addonsList = (bookingState.selectedAddons || []).map(a => a.name).join(', ') || 'Nenhum';
+              const totalAmount = selectedService.price + (bookingState.selectedAddons || []).reduce((sum, a) => sum + a.price, 0);
+
+              const message = `Olá! Realizei um agendamento e acabei de ver o QR Code:
+  
+👤 *Cliente:* ${bookingState.customerName}
+📞 *WhatsApp:* ${bookingState.customerPhone}
+✨ *Serviço:* ${selectedService.name}
+📅 *Data:* ${dateFormatted}
+⏰ *Horário:* ${bookingState.time}
+➕ *Adicionais:* ${addonsList}
+💰 *Valor Total:* R$ ${totalAmount},00
+${pixData?.brCode ? `\n💳 *PIX Copia e Cola:* ${pixData.brCode}` : ''}
+
+Solicito confirmação do horário!`;
+
+              const encodedMessage = encodeURIComponent(message);
+              const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
+              window.open(whatsappUrl, '_blank');
+            }}
+            className="bg-primary hover:bg-primary/90 text-white font-black py-4 px-12 rounded-full shadow-xl shadow-primary/20 transition-all uppercase tracking-tighter text-sm flex items-center gap-2"
+          >
+            Confirmar no WhatsApp
+            <span className="material-symbols-outlined text-sm">send</span>
+          </button>
+
+          <button
+            onClick={() => window.location.href = '/'}
+            className="bg-white/5 hover:bg-white/10 text-white font-black py-4 px-12 rounded-full border border-white/10 transition-all uppercase tracking-tighter text-sm"
+          >
+            Voltar para o Início
+          </button>
+        </div>
       </div>
     );
   }
