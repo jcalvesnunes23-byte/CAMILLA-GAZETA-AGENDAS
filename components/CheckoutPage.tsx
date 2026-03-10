@@ -16,8 +16,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolicyAccepted, setIsPolicyAccepted] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [pixData, setPixData] = useState<{ brCode: string; qrCode: string; id: string } | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
 
   if (loading || services.length === 0) {
     return (
@@ -45,55 +43,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
       const totalAmount = selectedService.price + addonsTotal;
 
       // Create appointment in Supabase
+      const appointmentId = crypto.randomUUID();
       const newBooking = {
         ...bookingState,
-        id: crypto.randomUUID(),
+        id: appointmentId,
         createdAt: new Date().toISOString(),
         status: 'pending' as const,
         totalAmount
       };
 
-      const createdBooking = await addBooking(newBooking);
-      const appointmentId = createdBooking?.id || newBooking.id;
-
-      // 1. Call AbacatePay Edge Function
-      let checkoutUrl = '';
-      try {
-        console.log('Calling Edge Function: create-abacate-billing', { amount: totalAmount, appointmentId });
-        const { data: billingData, error: billingError } = await supabase.functions.invoke('create-abacate-billing', {
-          body: {
-            amount: totalAmount,
-            appointmentId: appointmentId,
-            customer: {
-              name: bookingState.customerName,
-              email: bookingState.customerEmail,
-              cellphone: bookingState.customerPhone,
-              taxId: bookingState.customerCPF
-            },
-            successUrl: `${window.location.origin}/?success=true&id=${appointmentId}`
-          }
-        });
-
-        if (billingError) {
-          console.error('Edge Function Error:', billingError);
-          // Tenta extrair a mensagem de erro do corpo da resposta se disponível
-          let detailedError = billingError.message;
-          if (billingData && typeof billingData === 'object' && 'error' in billingData) {
-            detailedError = (billingData as any).error;
-          }
-          throw new Error(detailedError || 'Erro na função de pagamento');
-        }
-
-        if (billingData?.pixData) {
-          setPixData(billingData.pixData);
-          console.log('PIX Data received:', billingData.pixData);
-        } else {
-          throw new Error('AbacatePay não retornou dados do PIX.');
-        }
-      } catch (err: any) {
-        console.error('Error creating AbacatePay billing:', err);
-        alert(`Aviso: Não foi possível gerar o link de pagamento PIX. Detalhe: ${err.message}. Vamos prosseguir com o agendamento via WhatsApp.`);
-      }
+      await addBooking(newBooking);
 
       // Format WhatsApp Message
       const dateFormatted = new Date(bookingState.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', weekday: 'long' });
@@ -109,7 +68,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ bookingState, setBookingSta
 ➕ *Adicionais:* ${addonsList}
 💰 *Valor Total:* R$ ${totalAmount},00
 
-${pixData?.brCode ? `💳 *PIX Copia e Cola:* ${pixData.brCode}\n` : ''}
 *ID do Agendamento:* ${appointmentId}
 
 Aguardo a confirmação!`;
@@ -118,13 +76,11 @@ Aguardo a confirmação!`;
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
 
-      // 2. Success state handles UI (shows QR Code or redirects to WhatsApp)
+      // Open WhatsApp automatically
+      window.open(whatsappUrl, '_blank');
+
       setIsSuccess(true);
       setIsSubmitting(false);
-
-      if (!pixData && !checkoutUrl) {
-        window.open(whatsappUrl, '_blank');
-      }
 
     } catch (error: any) {
       console.error('Error creating booking:', error);
@@ -150,51 +106,8 @@ Aguardo a confirmação!`;
         </h1>
 
         <p className="text-slate-400 text-base md:text-xl max-w-2xl mb-12 font-medium">
-          Seu agendamento para <span className="text-white font-bold">{selectedService.name}</span> foi enviado com sucesso. Escolha uma opção de pagamento abaixo:
+          Seu agendamento para <span className="text-white font-bold">{selectedService.name}</span> foi enviado com sucesso. Já estamos te aguardando no WhatsApp para os detalhes finais!
         </p>
-
-        {pixData && (
-          <div className="w-full max-w-xl mb-12 animate-in slide-in-from-top-4 duration-700">
-            <div className="bg-card-dark rounded-3xl border border-white/10 p-8 shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4">
-                <span className="flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                </span>
-              </div>
-
-              <div className="flex flex-col items-center gap-6">
-                <div className="bg-primary/5 p-3 rounded-2xl border border-primary/10">
-                  <span className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Pagamento Instatâneo PIX</span>
-                </div>
-
-                <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-primary/20 hover:scale-[1.02] transition-transform duration-500 cursor-zoom-in">
-                  <img src={pixData.qrCode} alt="PIX QR Code" className="size-48 md:size-64 object-contain" />
-                </div>
-
-                <div className="w-full flex flex-col gap-4">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(pixData.brCode);
-                      setIsCopied(true);
-                      setTimeout(() => setIsCopied(false), 2000);
-                    }}
-                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 group/btn"
-                  >
-                    <span className="material-symbols-outlined text-primary group-hover/btn:scale-110 transition-transform">
-                      {isCopied ? 'check_circle' : 'content_copy'}
-                    </span>
-                    {isCopied ? 'Código Copiado!' : 'Copiar PIX Copia e Cola'}
-                  </button>
-
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">
-                    Escaneie o código acima ou copie o link
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-12">
           <div className="bg-card-dark p-6 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
@@ -222,7 +135,7 @@ Aguardo a confirmação!`;
               const addonsList = (bookingState.selectedAddons || []).map(a => a.name).join(', ') || 'Nenhum';
               const totalAmount = selectedService.price + (bookingState.selectedAddons || []).reduce((sum, a) => sum + a.price, 0);
 
-              const message = `Olá! Realizei um agendamento e acabei de ver o QR Code:
+              const message = `Olá! Realizei um agendamento:
   
 👤 *Cliente:* ${bookingState.customerName}
 📞 *WhatsApp:* ${bookingState.customerPhone}
@@ -231,7 +144,6 @@ Aguardo a confirmação!`;
 ⏰ *Horário:* ${bookingState.time}
 ➕ *Adicionais:* ${addonsList}
 💰 *Valor Total:* R$ ${totalAmount},00
-${pixData?.brCode ? `\n💳 *PIX Copia e Cola:* ${pixData.brCode}` : ''}
 
 Solicito confirmação do horário!`;
 
