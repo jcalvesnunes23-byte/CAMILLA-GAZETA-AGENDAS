@@ -11,25 +11,34 @@ serve(async (req) => {
         return new Response("ok", { headers: corsHeaders });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    const log = async (level: string, message: string, data?: any) => {
+        try {
+            await supabase.from("debug_logs").insert({ level, message, data });
+        } catch (e) {
+            console.error("Log failed:", e.message);
+        }
+    };
+
     try {
         const body = await req.json();
         const { amount, appointmentId, successUrl, customer } = body;
 
-        console.log("--- New Billing Request ---", appointmentId);
+        await log("INFO", "New Billing Request", { appointmentId, amount, customer });
 
         if (!amount || !appointmentId || !customer) {
             throw new Error(`Missing required parameters: amount=${amount}, appointmentId=${appointmentId}, customer=${!!customer}`);
         }
 
-        const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-        const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
         const ABACATE_PAY_TOKEN = Deno.env.get("ABACATE_PAY_TOKEN");
 
         if (!ABACATE_PAY_TOKEN) {
+            await log("ERROR", "ABACATE_PAY_TOKEN not configured");
             throw new Error("ABACATE_PAY_TOKEN not configured in Supabase Secrets");
         }
-
-        const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
         // 1. Fetch appointment details (simple query)
         const { data: appointment, error: apptError } = await supabase
@@ -38,40 +47,23 @@ serve(async (req) => {
             .eq("id", appointmentId)
             .maybeSingle();
 
-        if (apptError) {
-            console.error("Supabase appt error:", apptError.message);
-            throw new Error(`Database error fetching appointment: ${apptError.message}`);
-        }
-
-        if (!appointment) {
-            console.error("No appointment found for ID:", appointmentId);
-            throw new Error("Agendamento não encontrado no banco de dados.");
+        if (apptError || !appointment) {
+            await log("ERROR", "Appointment fetch failed", { appointmentId, apptError });
+            throw new Error(`Database error fetching appointment: ${apptError?.message || "Not found"}`);
         }
 
         // 2. Fetch service details (separate simple query)
-        const { data: service, error: svcError } = await supabase
+        const { data: service } = await supabase
             .from("services")
             .select("name")
             .eq("id", appointment.service_id)
             .maybeSingle();
 
-        if (svcError) {
-            console.warn("Service fetch error:", svcError.message);
-        }
-
-        // 3. Fetch Product Mapping
-        const { data: productMapping } = await supabase
-            .from("abacate_products")
-            .select("external_id")
-            .eq("service_id", appointment.service_id)
-            .maybeSingle();
-
-        const externalProductId = productMapping?.external_id || appointmentId;
         const productName = service?.name || "Agendamento - Camilla Gazeta";
-
-        console.log("Processing Billing:", productName, "| ID:", externalProductId);
-
         const amountInCents = Math.round(amount * 100);
+
+        // Sanitize CPF and Phone (digits only)
+        const sanitize = (str: string) => str.replace(/\D/g, "");
 
         const payload = {
             frequency: "ONE_TIME",
@@ -79,26 +71,29 @@ serve(async (req) => {
             methods: ["PIX"],
             customer: {
                 name: customer.name,
-                cellphone: customer.cellphone,
+                cellphone: sanitize(customer.cellphone),
                 email: customer.email,
-                taxId: customer.taxId || ""
+                taxId: sanitize(customer.taxId || "00000000000")
             },
             products: [
                 {
-                    externalId: externalProductId,
-                    name: productName,
+                    externalId: appointmentId,
+                    name: productName.substring(0, 37),
                     quantity: 1
                 }
             ],
             returnUrl: successUrl,
-            completionUrl: successUrl,
-            externalId: appointmentId,
+            completionUrl: successUrl
         };
+
+        await log("INFO", "Payload to AbacatePay (Billing)", payload);
+
+        const authHeader = ABACATE_PAY_TOKEN.startsWith("Bearer ") ? ABACATE_PAY_TOKEN : `Bearer ${ABACATE_PAY_TOKEN}`;
 
         const response = await fetch("https://api.abacatepay.com/v1/billing/create", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${ABACATE_PAY_TOKEN}`,
+                "Authorization": authHeader,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
@@ -107,24 +102,28 @@ serve(async (req) => {
         const abacateData = await response.json();
 
         if (!response.ok) {
-            console.error("AbacatePay API Error:", JSON.stringify(abacateData, null, 2));
-            throw new Error(abacateData.message || `Erro no AbacatePay (${response.status})`);
+            await log("ERROR", "AbacatePay Billing Error", { status: response.status, body: abacateData });
+            const errorMsg = abacateData.error || abacateData.message || JSON.stringify(abacateData);
+            throw new Error(`AbacatePay: ${errorMsg}`);
         }
+
+        await log("SUCCESS", "AbacatePay Billing Created", abacateData);
 
         const checkoutUrl = abacateData.data?.url;
         if (!checkoutUrl) {
-            throw new Error("AbacatePay não retornou URL de checkout");
+            await log("ERROR", "URL not found in billing response", abacateData);
+            throw new Error("AbacatePay: URL de checkout não encontrada");
         }
 
         return new Response(JSON.stringify({
             url: checkoutUrl,
-            billingId: abacateData.data.id
+            billingId: abacateData.data?.id
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,
         });
     } catch (error) {
-        console.error("❌ Edge Function Error:", error.message);
+        await log("ERROR", "Edge Function Internal Error", { error: error.message });
         return new Response(JSON.stringify({ error: error.message }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 400,
