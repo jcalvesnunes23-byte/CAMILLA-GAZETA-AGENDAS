@@ -3,34 +3,40 @@ import { Service } from './types';
 
 export const SERVICES: Service[] = [
   {
-    id: '1cdee5fb-a267-4067-8fd5-ac93c9660c53',
-    name: 'Design Simples',
-    price: 35,
-    description: 'Realce a beleza natural do seu olhar com um design personalizado para o seu formato de rosto.',
-    image: 'https://images.unsplash.com/photo-1588510701265-f8525cc334e3?q=80&w=1470&auto=format&fit=crop',
-    popular: false
-  },
-  {
-    id: '021c496f-829f-43e2-93dc-b00bd8e64589',
-    name: 'Design com Henna',
-    price: 45,
-    description: 'Definição e preenchimento natural para sobrancelhas marcantes e duradouras.',
-    image: 'https://images.unsplash.com/photo-1594917411210-9dc2d1b7776f?q=80&w=1471&auto=format&fit=crop',
+    id: '539114f9-2e63-486c-a897-5e014eb57b29',
+    name: 'ALONGAMENTO MOLDE F1',
+    price: 150,
+    description: 'Alongamento premium utilizando a técnica de molde F1 para um acabamento perfeito e natural.',
+    image: 'https://images.unsplash.com/photo-1604654894610-df490998700d?q=80&w=1374&auto=format&fit=crop',
     popular: true
   },
   {
-    id: 'a235f469-10de-40d3-830d-a6a17c0ed29e',
-    name: 'Design Personalizado',
-    price: 120,
-    description: 'Técnica tendência que deixa os fios alinhados e encorpados, proporcionando um visual volumoso e moderno.',
-    image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=1470&auto=format&fit=crop',
+    id: '2575f308-126b-493c-b23f-8d2a964202c8',
+    name: 'BLINDAGEM EM GEL',
+    price: 80,
+    description: 'Proteção e fortalecimento para suas unhas naturais com camada de gel de alta resistência.',
+    image: 'https://images.unsplash.com/photo-1636019280638-4d2247051319?q=80&w=1470&auto=format&fit=crop',
   },
   {
-    id: 'd992c0fd-76c5-4602-87c8-ba9ef84abf96',
-    name: 'Limpeza de Pele',
-    price: 450,
-    description: 'Procedimento semi-permanente para sobrancelhas perfeitas, com fios realistas ou efeito shadow.',
-    image: 'https://images.unsplash.com/photo-1629853905581-80d45b59ced5?q=80&w=1470&auto=format&fit=crop',
+    id: '5986ca83-a1c1-4091-aba6-f202634b8c78',
+    name: 'BANHO DE GEL',
+    price: 100,
+    description: 'Camada de gel sobre a unha natural para garantir brilho e durabilidade impecáveis.',
+    image: 'https://images.unsplash.com/photo-1604654894611-6973b376cbde?q=80&w=1374&auto=format&fit=crop',
+  },
+  {
+    id: 'aea0e278-da66-4d0c-a889-b3e65a7bd330',
+    name: 'ESMALTAÇÃO EM GEL',
+    price: 60,
+    description: 'Esmaltação de longa duração que não descasca e mantém o brilho por semanas.',
+    image: 'https://images.unsplash.com/photo-1639502512411-7299a4e8d89e?q=80&w=1374&auto=format&fit=crop',
+  },
+  {
+    id: 'ac627d9f-1776-4e80-b25d-a2acb97efe52',
+    name: 'MANUTENÇÃO',
+    price: 120,
+    description: 'Manutenção periódica para manter seu alongamento sempre impecável e seguro.',
+    image: 'https://images.unsplash.com/photo-1607779097040-26e80aa78e66?q=80&w=1470&auto=format&fit=crop',
   }
 ];
 
